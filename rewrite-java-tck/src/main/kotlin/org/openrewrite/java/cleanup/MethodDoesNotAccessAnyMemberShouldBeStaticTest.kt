@@ -24,8 +24,7 @@ interface MethodDoesNotAccessAnyMemberShouldBeStaticTest : JavaRecipeTest {
     @Test
     fun testCompliantPrivateSerializableImplementationSuperClass(jp: JavaParser) = assertUnchanged(
             jp,
-            dependsOn = arrayOf(
-                    """
+            dependsOn = arrayOf("""
                 package com.abc;
                 public class A implements java.io.Serializable {
                 }
@@ -53,7 +52,6 @@ interface MethodDoesNotAccessAnyMemberShouldBeStaticTest : JavaRecipeTest {
             }
             """
     )
-
 
     @Test
     fun testCompliantPrivateSerializableImplementation(jp: JavaParser) = assertUnchanged(
@@ -164,7 +162,6 @@ interface MethodDoesNotAccessAnyMemberShouldBeStaticTest : JavaRecipeTest {
             }
             """
     )
-
 
     @Test
     fun testNonCompliantPrivateMethodOnlyAccessStaticVariable(jp: JavaParser) = assertChanged(

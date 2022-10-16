@@ -66,54 +66,26 @@ public class MethodDoesNotAccessAnyMemberShouldBeStatic extends Recipe {
             @Override
             public J.MethodDeclaration visitMethodDeclaration(J.MethodDeclaration method, ExecutionContext executionContext) {
                 J.MethodDeclaration m = super.visitMethodDeclaration(method, executionContext);
-                if (isSerializableImplementationMethod(method)) {
-                    return m;
-                }
-                if (!method.getMethodType().hasFlags(Flag.Static) &&
+                if (!isSerializableImplementationMethod(method) &&
+                        !method.getMethodType().hasFlags(Flag.Static) &&
                         (method.getMethodType().hasFlags(Flag.Private) || method.getMethodType().hasFlags(Flag.Final))) {
                     AtomicBoolean nonStaticMethodInvocationOrNonStaticReference = new AtomicBoolean(false);
-                    new JavaIsoVisitor<AtomicBoolean>() {
-                        @Override
-                        public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, AtomicBoolean atomicBoolean) {
-                            Cursor parent = getCursor().dropParentUntil(is -> is instanceof J.MethodDeclaration);
-                            J.MethodDeclaration currentMethod = parent.getValue();
-                            if (!method.getMethodType().hasFlags(Flag.Static) &&
-                                    currentMethod.getMethodType().getDeclaringType()
-                                            .isAssignableTo(method.getMethodType().getDeclaringType().getFullyQualifiedName())
-                            ) {
-                                atomicBoolean.set(true);
-                            }
-                            return method;
-                        }
+                    new NonStaticMethodInvocationOrNonStaticReferenceVisitor().visit(method, nonStaticMethodInvocationOrNonStaticReference);
 
-                        @Override
-                        public J.Identifier visitIdentifier(J.Identifier identifier, AtomicBoolean atomicBoolean) {
-                            Cursor parent = getCursor().dropParentUntil(is -> is instanceof J.MethodDeclaration);
-                            J.MethodDeclaration currentMethod = parent.getValue();
-                            if (identifier.getFieldType() != null && !identifier.getFieldType().hasFlags(Flag.Static) &&
-                                    currentMethod.getMethodType().getDeclaringType().
-                                            isAssignableTo(identifier.getFieldType().getOwner().toString())
-                            ) {
-                                atomicBoolean.set(true);
-                            }
-                            return identifier;
-                        }
-                    }.visit(method, nonStaticMethodInvocationOrNonStaticReference);
                     if (!nonStaticMethodInvocationOrNonStaticReference.get()) {
                         List<J.Modifier> modifiers = new ArrayList<>(m.getModifiers());
                         Space singleSpace = Space.build(" ", Collections.emptyList());
                         modifiers.add(new J.Modifier(Tree.randomId(), singleSpace, Markers.EMPTY,
                                 J.Modifier.Type.Static, Collections.emptyList()));
-                        modifiers = modifiers.stream().filter(it -> !it.getType().equals(J.Modifier.Type.Final)).collect(Collectors.toList());
+                        modifiers = ModifierOrder.sortModifiers(modifiers.stream().filter(it -> !it.getType().equals(J.Modifier.Type.Final)).collect(Collectors.toList()));
+
                         JavaType.Method transformedType = m.getMethodType();
                         Set<Flag> flags = new LinkedHashSet<>(method.getMethodType().getFlags());
-                        if (flags.contains(Flag.Final)) {
-                            flags.remove(Flag.Final);
-                        }
                         flags.add(Flag.Static);
+                        flags = flags.stream().filter( f -> !f.equals(Flag.Final)).collect(Collectors.toSet());
                         transformedType = transformedType.withFlags(flags);
-                        m = m.withMethodType(transformedType).withModifiers(ModifierOrder.sortModifiers(modifiers));
-                        m = m.withModifiers(ModifierOrder.sortModifiers(modifiers));
+
+                        m = m.withMethodType(transformedType).withModifiers(modifiers);
                         doNext(new ChangeMethodTargetToStatic(MethodMatcher.methodPattern(method),
                                 method.getMethodType().getDeclaringType().getFullyQualifiedName(),
                                 method.getReturnTypeExpression().getType().toString(), false));
@@ -133,5 +105,33 @@ public class MethodDoesNotAccessAnyMemberShouldBeStatic extends Recipe {
                                 readObjectNoData.matches(method.getMethodType()));
             }
         };
+    }
+
+    private static class NonStaticMethodInvocationOrNonStaticReferenceVisitor extends JavaIsoVisitor<AtomicBoolean> {
+        @Override
+        public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, AtomicBoolean atomicBoolean) {
+            Cursor parent = getCursor().dropParentUntil(is -> is instanceof J.MethodDeclaration);
+            J.MethodDeclaration currentMethod = parent.getValue();
+            if (!method.getMethodType().hasFlags(Flag.Static) &&
+                    currentMethod.getMethodType().getDeclaringType()
+                            .isAssignableTo(method.getMethodType().getDeclaringType().getFullyQualifiedName())
+            ) {
+                atomicBoolean.set(true);
+            }
+            return method;
+        }
+
+        @Override
+        public J.Identifier visitIdentifier(J.Identifier identifier, AtomicBoolean atomicBoolean) {
+            Cursor parent = getCursor().dropParentUntil(is -> is instanceof J.MethodDeclaration);
+            J.MethodDeclaration currentMethod = parent.getValue();
+            if (identifier.getFieldType() != null && !identifier.getFieldType().hasFlags(Flag.Static) &&
+                    currentMethod.getMethodType().getDeclaringType().
+                            isAssignableTo(identifier.getFieldType().getOwner().toString())
+            ) {
+                atomicBoolean.set(true);
+            }
+            return identifier;
+        }
     }
 }
