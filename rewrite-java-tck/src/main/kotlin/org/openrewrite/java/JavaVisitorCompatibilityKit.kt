@@ -603,4 +603,7 @@ abstract class JavaVisitorCompatibilityKit {
 
     @Nested
     inner class WriteOctalValuesAsDecimalTck : WriteOctalValuesAsDecimalTest
+
+    @Nested
+    inner class MethodDoesNotAccessAnyMemberShouldBeStaticTck : MethodDoesNotAccessAnyMemberShouldBeStaticTest
 }
