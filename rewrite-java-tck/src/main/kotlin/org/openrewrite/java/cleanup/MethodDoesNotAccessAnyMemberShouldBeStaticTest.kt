@@ -94,7 +94,7 @@ interface MethodDoesNotAccessAnyMemberShouldBeStaticTest : JavaRecipeTest {
             public class A1 extends A {
                 public static String STATIC = "static";
                 public final String nonCompliantFinal() {
-                    getValue();
+                    this.getValue();
                     return STATIC;
                 }
             }
@@ -114,7 +114,7 @@ interface MethodDoesNotAccessAnyMemberShouldBeStaticTest : JavaRecipeTest {
                     return i;
                 }
                 public final String nonCompliantFinal() {
-                    getValue();
+                    this.getValue();
                     return STATIC;
                 }
             }
@@ -315,5 +315,61 @@ interface MethodDoesNotAccessAnyMemberShouldBeStaticTest : JavaRecipeTest {
             """,
             cycles = 2,
             expectedCyclesThatMakeChanges = 2
+    )
+
+    @Test
+    fun testCompliantOnlyAccessNonStaticMember(jp: JavaParser) = assertUnchanged(
+            jp,
+            dependsOn = arrayOf("""
+                package com.abc;
+                public class A {
+                    public void test();
+                }
+            """
+            ),
+            recipe = MethodDoesNotAccessAnyMemberShouldBeStatic(),
+            before = """
+            package com.abc;
+            public class C {
+                private A a =  new A();
+                private void good() {
+                    a.test();
+                }
+            }
+            """
+    )
+
+    @Test
+    fun testNonCompliantOnlyAccessNonStaticMember(jp: JavaParser) = assertChanged(
+            jp,
+            dependsOn = arrayOf("""
+                package com.abc;
+                public class A {
+                    public void test();
+                }
+            """
+            ),
+            recipe = MethodDoesNotAccessAnyMemberShouldBeStatic(),
+            before = """
+            package com.abc;
+            public class C {
+                public static A a =  new A();
+               
+                private void good() {
+                    a.test();
+                }
+            }
+            """,
+            after = """
+            package com.abc;
+            public class C {
+                public static A a =  new A();
+               
+                private static void good() {
+                    a.test();
+                }
+            }
+            """
+
     )
 }

@@ -82,7 +82,7 @@ public class MethodDoesNotAccessAnyMemberShouldBeStatic extends Recipe {
                         JavaType.Method transformedType = m.getMethodType();
                         Set<Flag> flags = new LinkedHashSet<>(method.getMethodType().getFlags());
                         flags.add(Flag.Static);
-                        flags = flags.stream().filter( f -> !f.equals(Flag.Final)).collect(Collectors.toSet());
+                        flags = flags.stream().filter(f -> !f.equals(Flag.Final)).collect(Collectors.toSet());
                         transformedType = transformedType.withFlags(flags);
 
                         m = m.withMethodType(transformedType).withModifiers(modifiers);
@@ -112,11 +112,15 @@ public class MethodDoesNotAccessAnyMemberShouldBeStatic extends Recipe {
         public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, AtomicBoolean atomicBoolean) {
             Cursor parent = getCursor().dropParentUntil(is -> is instanceof J.MethodDeclaration);
             J.MethodDeclaration currentMethod = parent.getValue();
-            if (!method.getMethodType().hasFlags(Flag.Static) &&
-                    currentMethod.getMethodType().getDeclaringType()
-                            .isAssignableTo(method.getMethodType().getDeclaringType().getFullyQualifiedName())
-            ) {
-                atomicBoolean.set(true);
+            if (method.getMethodType() != null) {
+                if (!method.getMethodType().hasFlags(Flag.Static) && currentMethod.getMethodType().getDeclaringType()
+                        .isAssignableTo(method.getMethodType().getDeclaringType().getFullyQualifiedName())) {
+                    atomicBoolean.set(true);
+                } else {
+                    if (method.getSelect() != null && method.getSelect() instanceof J.Identifier) {
+                        visitIdentifier((J.Identifier) method.getSelect(), atomicBoolean);
+                    }
+                }
             }
             return method;
         }
